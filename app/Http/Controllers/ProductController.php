@@ -41,11 +41,11 @@ class ProductController extends Controller
     public function store(Request $request)
     {
         $this->validate($request, [
-            'title' => 'required|string|max:255',
-            'description' => 'required|string',
-            'price' => 'required',
+                'title' => 'required|string|max:255',
+                'description' => 'required|string',
+                'price' => 'required',
 //            'image_url' => 'required|image|max:1024'
-        ]
+            ]
 //            ['image_url.required' => 'Image is required']
         );
 
@@ -67,7 +67,7 @@ class ProductController extends Controller
         }
         $product = Product::create($data);
 
-        return response()->json(['message' => ' Product Created Successfully', 'Product' =>$product ], 201);
+        return response()->json(['message' => ' Product Created Successfully', 'Product' => $product], 201);
 
     }
 
@@ -93,43 +93,47 @@ class ProductController extends Controller
      */
     public function update(Request $request, Product $product)
     {
-        $this->validate($request, [
-            'title' => 'required|string|max:255',
-            'description' => 'required|string',
-            'price' => 'required',
+        if ($product->created_by == auth()->user()->id) {
+
+            $this->validate($request, [
+                    'title' => 'string|max:255',
+                    'description' => 'string',
 //            'image_url' => 'required|image|max:1024'
-        ]
+                ]
 //            ['image_url.required' => 'Image is required']
-        );
+            );
 
-        $data = $request->all();
-        $data['slug'] = Str::slug($request->title);
-        $data['created_by'] = auth()->user()->id;
+            $data = $request->all();
+            $data['slug'] = Str::slug($request->title);
+            $data['created_by'] = auth()->user()->id;
 
-        //make the slug unique
-        if (Product::whereSlug($data['slug'])->withTrashed()->exists()) {
-            $lastProductId = Product::latest()->first()->id;
-            $data['slug'] = "{$data['slug']}-{$lastProductId}";
-        }
-
-        if ($request->has('image_url')) {
-
-            $file_path = public_path('/images/' . $product->image_url);
-            if (file_exists($file_path) && !empty($product->image_url)) {
-                unlink($file_path);
+            //make the slug unique
+            if (Product::whereSlug($data['slug'])->withTrashed()->exists()) {
+                $lastProductId = Product::latest()->first()->id;
+                $data['slug'] = "{$data['slug']}-{$lastProductId}";
             }
 
-            $file = $request->file('image_url');
-            $extension = $file->getClientOriginalExtension(); //getting file extension
-            $filename = time() . '.' . $extension;
-            $file->move('images/', $filename);
-            $data['image_url'] = $filename;
+            if ($request->has('image_url')) {
+
+                $file_path = public_path('/images/' . $product->image_url);
+                if (file_exists($file_path) && !empty($product->image_url)) {
+                    unlink($file_path);
+                }
+
+                $file = $request->file('image_url');
+                $extension = $file->getClientOriginalExtension(); //getting file extension
+                $filename = time() . '.' . $extension;
+                $file->move('images/', $filename);
+                $data['image_url'] = $filename;
+            }
+
+
+            $product->update($data);
+
+            return response()->json(['message' => 'Product Updated Successfully', 'updated Product' => $product]);
+        } else {
+            return response()->json(['message' => 'This is not your product', 'code' => '403'], 403);
         }
-
-
-        $product->update($data);
-
-        return response()->json(['message' => 'Product Updated Successfully', 'updated Product' => $product]);
     }
 
     /**
